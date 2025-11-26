@@ -1,0 +1,366 @@
+version: '3.8'
+
+services:
+  kafka-broker-1:
+    image: confluentinc/cp-kafka:7.5.0
+    hostname: kafka-broker-1
+    container_name: kafka-broker-1
+    ports:
+      - "9092:9092"
+      - "19092:19092"
+      - "9093:9093"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka-broker-1:9093,2@kafka-broker-2:9093,3@kafka-broker-3:9093'
+      KAFKA_LISTENERS: 'PLAINTEXT://kafka-broker-1:9092,CONTROLLER://kafka-broker-1:9093,PLAINTEXT_HOST://0.0.0.0:19092'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka-broker-1:9092,PLAINTEXT_HOST://localhost:19092'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_LOG_DIRS: '/var/lib/kafka/data'
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+    volumes:
+      - kafka-broker-1-data:/var/lib/kafka/data
+    networks:
+      - kafka-network
+
+  kafka-broker-2:
+    image: confluentinc/cp-kafka:7.5.0
+    hostname: kafka-broker-2
+    container_name: kafka-broker-2
+    ports:
+      - "9094:9094"
+      - "19093:19093"
+      - "9095:9093"
+    environment:
+      KAFKA_NODE_ID: 2
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka-broker-1:9093,2@kafka-broker-2:9093,3@kafka-broker-3:9093'
+      KAFKA_LISTENERS: 'PLAINTEXT://kafka-broker-2:9094,CONTROLLER://kafka-broker-2:9093,PLAINTEXT_HOST://0.0.0.0:19093'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka-broker-2:9094,PLAINTEXT_HOST://localhost:19093'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_LOG_DIRS: '/var/lib/kafka/data'
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+    volumes:
+      - kafka-broker-2-data:/var/lib/kafka/data
+    networks:
+      - kafka-network
+
+  kafka-broker-3:
+    image: confluentinc/cp-kafka:7.5.0
+    hostname: kafka-broker-3
+    container_name: kafka-broker-3
+    ports:
+      - "9096:9096"
+      - "19094:19094"
+      - "9097:9093"
+    environment:
+      KAFKA_NODE_ID: 3
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka-broker-1:9093,2@kafka-broker-2:9093,3@kafka-broker-3:9093'
+      KAFKA_LISTENERS: 'PLAINTEXT://kafka-broker-3:9096,CONTROLLER://kafka-broker-3:9093,PLAINTEXT_HOST://0.0.0.0:19094'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka-broker-3:9096,PLAINTEXT_HOST://localhost:19094'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_LOG_DIRS: '/var/lib/kafka/data'
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+    volumes:
+      - kafka-broker-3-data:/var/lib/kafka/data
+    networks:
+      - kafka-network
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.0
+    hostname: schema-registry
+    container_name: schema-registry
+    depends_on:
+      - kafka-broker-1
+      - kafka-broker-2
+      - kafka-broker-3
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'kafka-broker-1:9092,kafka-broker-2:9094,kafka-broker-3:9096'
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_SCHEMA_COMPATIBILITY_LEVEL: backward
+    networks:
+      - kafka-network
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka-init
+    depends_on:
+      - kafka-broker-1
+      - kafka-broker-2
+      - kafka-broker-3
+    entrypoint: ['/bin/bash', '/scripts/init-topics.sh']
+    volumes:
+      - ./kafka/init-topics.sh:/scripts/init-topics.sh:ro
+    networks:
+      - kafka-network
+    restart: on-failure
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      - kafka-broker-1
+      - kafka-broker-2
+      - kafka-broker-3
+      - schema-registry
+      - kafka-init
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: health-stack-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka-broker-1:9092,kafka-broker-2:9094,kafka-broker-3:9096
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+      DYNAMIC_CONFIG_ENABLED: 'true'
+    networks:
+      - kafka-network
+
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+      target: production
+    container_name: health-stack-gateway
+    depends_on:
+      - kafka-broker-1
+      - kafka-broker-2
+      - kafka-broker-3
+      - schema-registry
+      - kafka-init
+    ports:
+      - "3000:3000"
+    environment:
+      KAFKA_BROKERS: kafka-broker-1:9092,kafka-broker-2:9094,kafka-broker-3:9096
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      LOG_LEVEL: INFO
+      SSL_ENABLED: ${SSL_ENABLED:-false}
+      SSL_CERTFILE: ${SSL_CERTFILE:-/app/certs/cert.pem}
+      SSL_KEYFILE: ${SSL_KEYFILE:-/app/certs/key.pem}
+      SCHEMA_PATH: /app/schemas/health-data.avsc
+    volumes:
+      - ./gateway/certs:/app/certs:ro
+    networks:
+      - kafka-network
+    restart: unless-stopped
+
+  # MinIO - S3-compatible object storage for Iceberg data lake
+  minio:
+    image: minio/minio:latest
+    hostname: minio
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - kafka-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # MinIO client to create buckets
+  minio-init:
+    image: minio/mc:latest
+    container_name: minio-init
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 5;
+      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb myminio/data-lake --ignore-existing;
+      /usr/bin/mc mb myminio/flink-checkpoints --ignore-existing;
+      /usr/bin/mc anonymous set download myminio/data-lake;
+      /usr/bin/mc anonymous set download myminio/flink-checkpoints;
+      exit 0;
+      "
+    networks:
+      - kafka-network
+
+  # Flink JobManager
+  flink-jobmanager:
+    build:
+      context: ./flink_consumer
+      dockerfile: Dockerfile
+      target: production
+    hostname: flink-jobmanager
+    container_name: flink-jobmanager
+    depends_on:
+      - kafka-broker-1
+      - kafka-broker-2
+      - kafka-broker-3
+      - schema-registry
+      - minio
+      - minio-init
+    ports:
+      - "8081:8081"  # Web UI
+      - "6123:6123"  # RPC
+      - "9249:9249"  # Prometheus metrics
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+      - KAFKA_BROKERS=kafka-broker-1:9092,kafka-broker-2:9094,kafka-broker-3:9096
+      - KAFKA_TOPIC=health-data-raw
+      - KAFKA_GROUP_ID=flink-iceberg-consumer
+      - SCHEMA_REGISTRY_URL=http://schema-registry:8081
+      - ICEBERG_CATALOG_TYPE=hadoop
+      - ICEBERG_WAREHOUSE=s3a://data-lake/warehouse
+      - S3_ENDPOINT=http://minio:9000
+      - S3_ACCESS_KEY=minioadmin
+      - S3_SECRET_KEY=minioadmin
+      - S3_PATH_STYLE_ACCESS=true
+      - FLINK_CHECKPOINT_STORAGE=s3a://flink-checkpoints/health-consumer
+      - FLINK_PARALLELISM=6
+      - LOG_LEVEL=INFO
+    volumes:
+      - flink-jobmanager-data:/opt/flink/checkpoints
+    networks:
+      - kafka-network
+    command: jobmanager
+    restart: unless-stopped
+
+  # Flink TaskManager (replica 1)
+  flink-taskmanager-1:
+    build:
+      context: ./flink_consumer
+      dockerfile: Dockerfile
+      target: production
+    hostname: flink-taskmanager-1
+    container_name: flink-taskmanager-1
+    depends_on:
+      - flink-jobmanager
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+      - TASK_MANAGER_NUMBER_OF_TASK_SLOTS=4
+      - KAFKA_BROKERS=kafka-broker-1:9092,kafka-broker-2:9094,kafka-broker-3:9096
+      - KAFKA_TOPIC=health-data-raw
+      - KAFKA_GROUP_ID=flink-iceberg-consumer
+      - SCHEMA_REGISTRY_URL=http://schema-registry:8081
+      - ICEBERG_CATALOG_TYPE=hadoop
+      - ICEBERG_WAREHOUSE=s3a://data-lake/warehouse
+      - S3_ENDPOINT=http://minio:9000
+      - S3_ACCESS_KEY=minioadmin
+      - S3_SECRET_KEY=minioadmin
+      - S3_PATH_STYLE_ACCESS=true
+      - FLINK_CHECKPOINT_STORAGE=s3a://flink-checkpoints/health-consumer
+      - LOG_LEVEL=INFO
+    volumes:
+      - flink-taskmanager-1-data:/opt/flink/state
+    networks:
+      - kafka-network
+    command: taskmanager
+    restart: unless-stopped
+
+  # Flink TaskManager (replica 2)
+  flink-taskmanager-2:
+    build:
+      context: ./flink_consumer
+      dockerfile: Dockerfile
+      target: production
+    hostname: flink-taskmanager-2
+    container_name: flink-taskmanager-2
+    depends_on:
+      - flink-jobmanager
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+      - TASK_MANAGER_NUMBER_OF_TASK_SLOTS=4
+      - KAFKA_BROKERS=kafka-broker-1:9092,kafka-broker-2:9094,kafka-broker-3:9096
+      - KAFKA_TOPIC=health-data-raw
+      - KAFKA_GROUP_ID=flink-iceberg-consumer
+      - SCHEMA_REGISTRY_URL=http://schema-registry:8081
+      - ICEBERG_CATALOG_TYPE=hadoop
+      - ICEBERG_WAREHOUSE=s3a://data-lake/warehouse
+      - S3_ENDPOINT=http://minio:9000
+      - S3_ACCESS_KEY=minioadmin
+      - S3_SECRET_KEY=minioadmin
+      - S3_PATH_STYLE_ACCESS=true
+      - FLINK_CHECKPOINT_STORAGE=s3a://flink-checkpoints/health-consumer
+      - LOG_LEVEL=INFO
+    volumes:
+      - flink-taskmanager-2-data:/opt/flink/state
+    networks:
+      - kafka-network
+    command: taskmanager
+    restart: unless-stopped
+
+  # Flink TaskManager (replica 3)
+  flink-taskmanager-3:
+    build:
+      context: ./flink_consumer
+      dockerfile: Dockerfile
+      target: production
+    hostname: flink-taskmanager-3
+    container_name: flink-taskmanager-3
+    depends_on:
+      - flink-jobmanager
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+      - TASK_MANAGER_NUMBER_OF_TASK_SLOTS=4
+      - KAFKA_BROKERS=kafka-broker-1:9092,kafka-broker-2:9094,kafka-broker-3:9096
+      - KAFKA_TOPIC=health-data-raw
+      - KAFKA_GROUP_ID=flink-iceberg-consumer
+      - SCHEMA_REGISTRY_URL=http://schema-registry:8081
+      - ICEBERG_CATALOG_TYPE=hadoop
+      - ICEBERG_WAREHOUSE=s3a://data-lake/warehouse
+      - S3_ENDPOINT=http://minio:9000
+      - S3_ACCESS_KEY=minioadmin
+      - S3_SECRET_KEY=minioadmin
+      - S3_PATH_STYLE_ACCESS=true
+      - FLINK_CHECKPOINT_STORAGE=s3a://flink-checkpoints/health-consumer
+      - LOG_LEVEL=INFO
+    volumes:
+      - flink-taskmanager-3-data:/opt/flink/state
+    networks:
+      - kafka-network
+    command: taskmanager
+    restart: unless-stopped
+
+networks:
+  kafka-network:
+    driver: bridge
+
+volumes:
+  kafka-broker-1-data:
+  kafka-broker-2-data:
+  kafka-broker-3-data:
+  minio-data:
+  flink-jobmanager-data:
+  flink-taskmanager-1-data:
+  flink-taskmanager-2-data:
+  flink-taskmanager-3-data:

@@ -1,0 +1,95 @@
+{
+  "type": "record",
+  "name": "HealthDataPayload",
+  "namespace": "com.healthstack.data",
+  "doc": "Health data payload from health-stack iOS app",
+  "fields": [
+    {
+      "name": "deviceId",
+      "type": "string",
+      "doc": "Device unique identifier (UUID format)"
+    },
+    {
+      "name": "userId",
+      "type": "string",
+      "doc": "User identifier"
+    },
+    {
+      "name": "samples",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "HealthDataSample",
+          "fields": [
+            {
+              "name": "id",
+              "type": "string",
+              "doc": "Sample unique identifier (UUID)"
+            },
+            {
+              "name": "type",
+              "type": "string",
+              "doc": "Health data type (e.g., heartRate, stepCount, bodyMass)"
+            },
+            {
+              "name": "value",
+              "type": "double",
+              "doc": "Numeric value of the health data"
+            },
+            {
+              "name": "unit",
+              "type": "string",
+              "doc": "Unit of measurement (e.g., count/min, kg, cm)"
+            },
+            {
+              "name": "startDate",
+              "type": "string",
+              "doc": "Start date/time in ISO 8601 format"
+            },
+            {
+              "name": "endDate",
+              "type": "string",
+              "doc": "End date/time in ISO 8601 format"
+            },
+            {
+              "name": "sourceBundle",
+              "type": ["null", "string"],
+              "default": null,
+              "doc": "Source bundle identifier (optional)"
+            },
+            {
+              "name": "metadata",
+              "type": {
+                "type": "map",
+                "values": "string"
+              },
+              "doc": "Additional metadata as key-value pairs"
+            },
+            {
+              "name": "isSynced",
+              "type": "boolean",
+              "doc": "Whether the data has been synced"
+            },
+            {
+              "name": "createdAt",
+              "type": "string",
+              "doc": "Creation timestamp in ISO 8601 format"
+            }
+          ]
+        }
+      },
+      "doc": "Array of health data samples"
+    },
+    {
+      "name": "timestamp",
+      "type": "string",
+      "doc": "Payload timestamp in ISO 8601 format"
+    },
+    {
+      "name": "appVersion",
+      "type": "string",
+      "doc": "App version that sent the data"
+    }
+  ]
+}

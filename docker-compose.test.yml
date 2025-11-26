@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  kafka-broker-test:
+    image: confluentinc/cp-kafka:7.5.0
+    hostname: kafka-broker-test
+    container_name: kafka-broker-test
+    ports:
+      - "19095:19095"
+      - "9098:9098"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka-broker-test:9098'
+      KAFKA_LISTENERS: 'PLAINTEXT://kafka-broker-test:9092,CONTROLLER://kafka-broker-test:9098,PLAINTEXT_HOST://0.0.0.0:19095'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka-broker-test:9092,PLAINTEXT_HOST://localhost:19095'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_LOG_DIRS: '/var/lib/kafka/data'
+      CLUSTER_ID: 'VEVTVENMVVNURVJJRDEyMw'
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  schema-registry-test:
+    image: confluentinc/cp-schema-registry:7.5.0
+    hostname: schema-registry-test
+    container_name: schema-registry-test
+    depends_on:
+      kafka-broker-test:
+        condition: service_healthy
+    ports:
+      - "8082:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry-test
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'kafka-broker-test:9092'
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_SCHEMA_COMPATIBILITY_LEVEL: backward
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/subjects"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  gateway-test:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: gateway-test
+    depends_on:
+      kafka-broker-test:
+        condition: service_healthy
+      schema-registry-test:
+        condition: service_healthy
+    ports:
+      - "3001:3000"
+    environment:
+      KAFKA_BROKERS: kafka-broker-test:9092
+      SCHEMA_REGISTRY_URL: http://schema-registry-test:8081
+      LOG_LEVEL: DEBUG
+      KAFKA_TOPIC: health-data-test
+      KAFKA_DLQ_TOPIC: health-data-dlq-test
+    volumes:
+      - ./gateway/schemas:/app/schemas:ro
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  test-network:
+    driver: bridge

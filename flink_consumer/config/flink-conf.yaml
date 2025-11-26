@@ -1,0 +1,230 @@
+# Flink Configuration for Health Data Consumer
+# This configuration file sets up Flink for streaming health data from Kafka to Iceberg
+
+################################################################################
+# Common Configuration
+################################################################################
+
+# JobManager configuration
+jobmanager.rpc.address: localhost
+jobmanager.rpc.port: 6123
+jobmanager.memory.process.size: 2048m
+
+# TaskManager configuration
+taskmanager.memory.process.size: 4096m
+taskmanager.numberOfTaskSlots: 4
+taskmanager.memory.managed.size: 1536m
+
+# Parallelism
+parallelism.default: 6
+
+################################################################################
+# Checkpointing and State Backend
+################################################################################
+
+# State backend
+state.backend: rocksdb
+state.backend.incremental: true
+
+# Checkpoint configuration
+execution.checkpointing.mode: EXACTLY_ONCE
+execution.checkpointing.interval: 60s
+execution.checkpointing.timeout: 10min
+execution.checkpointing.min-pause: 30s
+execution.checkpointing.max-concurrent-checkpoints: 1
+
+# Externalized checkpoints
+execution.checkpointing.externalized-checkpoint-retention: RETAIN_ON_CANCELLATION
+
+# Checkpoint storage (override with environment variable)
+state.checkpoints.dir: file:///tmp/flink-checkpoints
+
+# Savepoint directory
+state.savepoints.dir: file:///tmp/flink-savepoints
+
+################################################################################
+# RocksDB State Backend Configuration
+################################################################################
+
+state.backend.rocksdb.memory.managed: true
+state.backend.rocksdb.memory.write-buffer-ratio: 0.5
+state.backend.rocksdb.memory.high-prio-pool-ratio: 0.1
+state.backend.rocksdb.checkpoint.transfer.thread.num: 4
+state.backend.rocksdb.localdir: /tmp/flink-rocksdb
+
+################################################################################
+# Restart Strategy
+################################################################################
+
+restart-strategy: fixed-delay
+restart-strategy.fixed-delay.attempts: 3
+restart-strategy.fixed-delay.delay: 10s
+
+################################################################################
+# Metrics Configuration
+################################################################################
+
+# Metrics reporters
+metrics.reporters: prom
+
+# Prometheus reporter configuration
+metrics.reporter.prom.class: org.apache.flink.metrics.prometheus.PrometheusReporter
+metrics.reporter.prom.port: 9249
+metrics.reporter.prom.host: 0.0.0.0
+
+# Metric scope configuration
+metrics.scope.jm: flink.jobmanager
+metrics.scope.jm.job: flink.jobmanager.<job_name>
+metrics.scope.tm: flink.taskmanager.<tm_id>
+metrics.scope.tm.job: flink.taskmanager.<tm_id>.<job_name>
+metrics.scope.task: flink.taskmanager.<tm_id>.<job_name>.<task_name>.<subtask_index>
+metrics.scope.operator: flink.taskmanager.<tm_id>.<job_name>.<operator_name>.<subtask_index>
+
+# Metric reporting interval
+metrics.reporter.prom.interval: 10s
+
+# System metrics
+metrics.system-resource: true
+metrics.system-resource-probing-interval: 5000
+
+# Latency tracking
+metrics.latency.interval: 10000
+metrics.latency.granularity: operator
+
+################################################################################
+# Network Configuration
+################################################################################
+
+# Network buffer configuration
+taskmanager.network.memory.fraction: 0.1
+taskmanager.network.memory.min: 64mb
+taskmanager.network.memory.max: 1gb
+
+# Network buffer pool
+taskmanager.network.numberOfBuffers: 2048
+
+################################################################################
+# Web UI Configuration
+################################################################################
+
+# Web UI
+web.submit.enable: true
+web.cancel.enable: true
+web.port: 8081
+web.timeout: 600000
+
+# History server
+jobmanager.archive.fs.dir: file:///tmp/flink-completed-jobs
+historyserver.web.port: 8082
+historyserver.archive.fs.dir: file:///tmp/flink-completed-jobs
+historyserver.archive.fs.refresh-interval: 10000
+
+################################################################################
+# High Availability (Optional - for production)
+################################################################################
+
+# Uncomment for HA setup
+# high-availability: zookeeper
+# high-availability.storageDir: hdfs:///flink/ha/
+# high-availability.zookeeper.quorum: localhost:2181
+# high-availability.zookeeper.path.root: /flink
+# high-availability.cluster-id: /health-data-consumer
+
+################################################################################
+# Security Configuration (Optional)
+################################################################################
+
+# SSL/TLS configuration (uncomment if needed)
+# security.ssl.enabled: true
+# security.ssl.keystore: /path/to/keystore.jks
+# security.ssl.keystore-password: password
+# security.ssl.truststore: /path/to/truststore.jks
+# security.ssl.truststore-password: password
+
+################################################################################
+# Advanced Configuration
+################################################################################
+
+# Classloader resolution order
+classloader.resolve-order: child-first
+
+# Akka configuration
+akka.ask.timeout: 60s
+akka.framesize: 10485760b
+
+# Blob server configuration
+blob.server.port: 6124
+blob.service.cleanup.interval: 3600
+
+# Query server configuration
+queryable-state.enable: false
+
+# Slot sharing
+cluster.evenly-spread-out-slots: true
+
+################################################################################
+# Python Configuration
+################################################################################
+
+# Python execution configuration
+python.client.executable: python3
+python.executable: python3
+
+# Python framework
+python.framework: flink
+
+################################################################################
+# Table API Configuration
+################################################################################
+
+# Table planner
+table.exec.resource.default-parallelism: 6
+
+# State TTL for table operations
+table.exec.state.ttl: 7d
+
+# Mini-batch configuration for better throughput
+table.exec.mini-batch.enabled: true
+table.exec.mini-batch.allow-latency: 5s
+table.exec.mini-batch.size: 5000
+
+# Sink configuration for exactly-once semantics
+table.exec.sink.not-null-enforcer: drop
+table.exec.sink.upsert-materialize: none
+
+################################################################################
+# Iceberg Connector Configuration (Exactly-Once)
+################################################################################
+
+# Write distribution mode (none, hash, range)
+# 'none' provides best performance for append-only workloads
+write.distribution-mode: none
+
+# Disable upsert mode for exactly-once guarantee
+write.upsert.enabled: false
+
+# Write format configuration
+write.format.default: parquet
+write.target-file-size-bytes: 134217728  # 128MB default
+
+# Parquet configuration
+write.parquet.compression-codec: snappy
+write.parquet.page-size-bytes: 1048576  # 1MB
+write.parquet.row-group-size-bytes: 134217728  # 128MB
+
+# Commit configuration for exactly-once
+commit.retry.num-retries: 3
+commit.retry.min-wait-ms: 100
+commit.manifest.target-size-bytes: 8388608  # 8MB
+
+################################################################################
+# Logging Configuration
+################################################################################
+
+# Log file configuration
+env.log.dir: /tmp/flink-logs
+env.log.max: 10
+
+# Logging level (can be overridden by log4j configuration)
+# Valid levels: TRACE, DEBUG, INFO, WARN, ERROR
+# rootLogger.level: INFO

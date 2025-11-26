@@ -1,0 +1,32 @@
+{
+  "topics": [
+    {
+      "name": "health-data-raw",
+      "partitions": 6,
+      "replicationFactor": 3,
+      "configs": {
+        "retention.ms": "604800000",
+        "min.insync.replicas": "2",
+        "compression.type": "snappy",
+        "cleanup.policy": "delete",
+        "segment.ms": "86400000",
+        "max.message.bytes": "1048576"
+      },
+      "description": "Main topic for health data from iOS app (7 days retention)"
+    },
+    {
+      "name": "health-data-dlq",
+      "partitions": 3,
+      "replicationFactor": 3,
+      "configs": {
+        "retention.ms": "2592000000",
+        "min.insync.replicas": "2",
+        "compression.type": "snappy",
+        "cleanup.policy": "delete",
+        "segment.ms": "86400000",
+        "max.message.bytes": "1048576"
+      },
+      "description": "Dead Letter Queue for failed messages (30 days retention)"
+    }
+  ]
+}

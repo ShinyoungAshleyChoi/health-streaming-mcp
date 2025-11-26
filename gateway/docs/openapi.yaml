@@ -1,0 +1,522 @@
+openapi: 3.0.3
+info:
+  title: Health Stack Kafka Gateway API
+  description: |
+    REST API for ingesting health data from iOS applications. 
+    
+    The gateway receives JSON health data, validates it, converts to Avro format, 
+    and publishes to Kafka topics for downstream processing.
+    
+    ## Features
+    - JSON to Avro conversion
+    - Schema validation
+    - Kafka message publishing
+    - Dead Letter Queue for failed messages
+    - Prometheus metrics
+    - Health checks
+    
+    ## Rate Limiting
+    - 1000 requests per minute per client
+    - Returns 429 when exceeded
+    
+    ## Authentication
+    Optional Bearer token authentication (when enabled)
+  version: 1.0.0
+  contact:
+    name: Health Stack Team
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+  - url: http://localhost:3000/api/v1
+    description: API v1 base path
+
+tags:
+  - name: health-data
+    description: Health data ingestion endpoints
+  - name: monitoring
+    description: Health checks and metrics
+
+paths:
+  /api/v1/health-data:
+    post:
+      tags:
+        - health-data
+      summary: Submit health data
+      description: |
+        Submit health data from iOS application. Data is validated, converted to Avro format,
+        and published to Kafka topic.
+        
+        ## Validation Rules
+        - userId must be valid UUID v4
+        - timestamp must be ISO 8601 format
+        - dataType must be one of supported types
+        - value must be within valid range for data type
+        - metadata fields are required
+      operationId: submitHealthData
+      parameters:
+        - name: X-Request-ID
+          in: header
+          description: Client-provided request ID for tracing
+          required: false
+          schema:
+            type: string
+            format: uuid
+            example: "123e4567-e89b-12d3-a456-426614174000"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HealthDataRequest'
+            examples:
+              heartRate:
+                summary: Heart rate data
+                value:
+                  userId: "550e8400-e29b-41d4-a716-446655440000"
+                  timestamp: "2025-11-12T10:30:00Z"
+                  dataType: "heart_rate"
+                  value: 72
+                  unit: "bpm"
+                  metadata:
+                    deviceId: "iPhone14-ABC123"
+                    appVersion: "1.2.3"
+                    platform: "iOS"
+              steps:
+                summary: Steps data
+                value:
+                  userId: "550e8400-e29b-41d4-a716-446655440000"
+                  timestamp: "2025-11-12T23:59:59Z"
+                  dataType: "steps"
+                  value: 8543
+                  unit: "count"
+                  metadata:
+                    deviceId: "iPhone14-ABC123"
+                    appVersion: "1.2.3"
+                    platform: "iOS"
+              bloodPressure:
+                summary: Blood pressure data
+                value:
+                  userId: "550e8400-e29b-41d4-a716-446655440000"
+                  timestamp: "2025-11-12T08:00:00Z"
+                  dataType: "blood_pressure"
+                  value:
+                    systolic: 120
+                    diastolic: 80
+                  unit: "mmHg"
+                  metadata:
+                    deviceId: "iPhone14-ABC123"
+                    appVersion: "1.2.3"
+                    platform: "iOS"
+      responses:
+        '200':
+          description: Data successfully received and published to Kafka
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                status: "success"
+                requestId: "123e4567-e89b-12d3-a456-426614174000"
+                timestamp: "2025-11-12T10:30:00.123Z"
+        '400':
+          description: Invalid JSON format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: "error"
+                message: "Invalid JSON format"
+                requestId: "123e4567-e89b-12d3-a456-426614174000"
+                timestamp: "2025-11-12T10:30:00.123Z"
+        '401':
+          description: Unauthorized - Invalid or missing authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: "error"
+                message: "Unauthorized"
+                requestId: "123e4567-e89b-12d3-a456-426614174000"
+                timestamp: "2025-11-12T10:30:00.123Z"
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              example:
+                status: "error"
+                message: "Validation failed"
+                errors:
+                  - field: "userId"
+                    message: "Invalid UUID format"
+                  - field: "value"
+                    message: "Heart rate must be between 30 and 250 bpm"
+                requestId: "123e4567-e89b-12d3-a456-426614174000"
+                timestamp: "2025-11-12T10:30:00.123Z"
+        '429':
+          description: Rate limit exceeded
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying
+              schema:
+                type: integer
+                example: 60
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: "error"
+                message: "Rate limit exceeded. Please try again later."
+                requestId: "123e4567-e89b-12d3-a456-426614174000"
+                timestamp: "2025-11-12T10:30:00.123Z"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: "error"
+                message: "Internal server error"
+                requestId: "123e4567-e89b-12d3-a456-426614174000"
+                timestamp: "2025-11-12T10:30:00.123Z"
+        '503':
+          description: Service unavailable (Kafka connection issue)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: "error"
+                message: "Service temporarily unavailable. Please try again later."
+                requestId: "123e4567-e89b-12d3-a456-426614174000"
+                timestamp: "2025-11-12T10:30:00.123Z"
+      security:
+        - BearerAuth: []
+        - {}
+
+  /health:
+    get:
+      tags:
+        - monitoring
+      summary: Health check
+      description: |
+        Check the health status of the gateway and its dependencies (Kafka, Schema Registry).
+        
+        Returns 200 OK even when dependencies are degraded, but indicates status in response.
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service health status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                healthy:
+                  summary: All systems healthy
+                  value:
+                    status: "healthy"
+                    timestamp: "2025-11-12T10:30:00.123Z"
+                    checks:
+                      kafka:
+                        status: "up"
+                        latency_ms: 5
+                      schemaRegistry:
+                        status: "up"
+                        latency_ms: 3
+                    uptime_seconds: 3600
+                degraded:
+                  summary: Degraded state (Kafka down)
+                  value:
+                    status: "degraded"
+                    timestamp: "2025-11-12T10:30:00.123Z"
+                    checks:
+                      kafka:
+                        status: "down"
+                        error: "Connection timeout after 5000ms"
+                      schemaRegistry:
+                        status: "up"
+                        latency_ms: 3
+                    uptime_seconds: 3600
+
+  /metrics:
+    get:
+      tags:
+        - monitoring
+      summary: Prometheus metrics
+      description: |
+        Prometheus-formatted metrics for monitoring and alerting.
+        
+        ## Metrics Included
+        - http_requests_total: Total HTTP requests by method, endpoint, status
+        - http_request_duration_seconds: Request duration histogram
+        - kafka_messages_sent_total: Total Kafka messages sent
+        - kafka_send_errors_total: Total Kafka send errors
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |
+                # HELP http_requests_total Total number of HTTP requests
+                # TYPE http_requests_total counter
+                http_requests_total{method="POST",endpoint="/api/v1/health-data",status="200"} 1523
+                
+                # HELP http_request_duration_seconds HTTP request duration in seconds
+                # TYPE http_request_duration_seconds histogram
+                http_request_duration_seconds_bucket{le="0.1"} 1200
+                http_request_duration_seconds_sum 245.3
+                http_request_duration_seconds_count 1523
+                
+                # HELP kafka_messages_sent_total Total Kafka messages sent
+                # TYPE kafka_messages_sent_total counter
+                kafka_messages_sent_total{topic="health-data-raw",status="success"} 1500
+
+components:
+  schemas:
+    HealthDataRequest:
+      type: object
+      required:
+        - userId
+        - timestamp
+        - dataType
+        - value
+        - metadata
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: Unique user identifier
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        timestamp:
+          type: string
+          format: date-time
+          description: Data collection timestamp (ISO 8601)
+          example: "2025-11-12T10:30:00Z"
+        dataType:
+          type: string
+          enum:
+            - heart_rate
+            - steps
+            - sleep
+            - blood_pressure
+            - blood_glucose
+            - body_temperature
+            - oxygen_saturation
+            - respiratory_rate
+            - weight
+            - height
+          description: Type of health data
+          example: "heart_rate"
+        value:
+          oneOf:
+            - type: number
+            - type: object
+          description: Measurement value (number or object for complex data)
+          example: 72
+        unit:
+          type: string
+          description: Unit of measurement
+          example: "bpm"
+        metadata:
+          $ref: '#/components/schemas/Metadata'
+
+    Metadata:
+      type: object
+      required:
+        - deviceId
+        - appVersion
+        - platform
+      properties:
+        deviceId:
+          type: string
+          description: Device identifier
+          example: "iPhone14-ABC123"
+          maxLength: 100
+        appVersion:
+          type: string
+          description: App version (semantic versioning)
+          example: "1.2.3"
+          pattern: '^\d+\.\d+\.\d+$'
+        platform:
+          type: string
+          enum:
+            - iOS
+            - Android
+          description: Platform
+          example: "iOS"
+
+    SuccessResponse:
+      type: object
+      required:
+        - status
+        - requestId
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum:
+            - success
+          example: "success"
+        requestId:
+          type: string
+          format: uuid
+          description: Request identifier for tracing
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        timestamp:
+          type: string
+          format: date-time
+          description: Response timestamp
+          example: "2025-11-12T10:30:00.123Z"
+
+    ErrorResponse:
+      type: object
+      required:
+        - status
+        - message
+        - requestId
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum:
+            - error
+          example: "error"
+        message:
+          type: string
+          description: Error message
+          example: "Internal server error"
+        requestId:
+          type: string
+          format: uuid
+          description: Request identifier for tracing
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        timestamp:
+          type: string
+          format: date-time
+          description: Response timestamp
+          example: "2025-11-12T10:30:00.123Z"
+
+    ValidationErrorResponse:
+      type: object
+      required:
+        - status
+        - message
+        - errors
+        - requestId
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum:
+            - error
+          example: "error"
+        message:
+          type: string
+          example: "Validation failed"
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationError'
+        requestId:
+          type: string
+          format: uuid
+          description: Request identifier for tracing
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        timestamp:
+          type: string
+          format: date-time
+          description: Response timestamp
+          example: "2025-11-12T10:30:00.123Z"
+
+    ValidationError:
+      type: object
+      required:
+        - field
+        - message
+      properties:
+        field:
+          type: string
+          description: Field that failed validation
+          example: "userId"
+        message:
+          type: string
+          description: Validation error message
+          example: "Invalid UUID format"
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+        - checks
+        - uptime_seconds
+      properties:
+        status:
+          type: string
+          enum:
+            - healthy
+            - degraded
+          description: Overall health status
+          example: "healthy"
+        timestamp:
+          type: string
+          format: date-time
+          description: Health check timestamp
+          example: "2025-11-12T10:30:00.123Z"
+        checks:
+          type: object
+          properties:
+            kafka:
+              $ref: '#/components/schemas/DependencyCheck'
+            schemaRegistry:
+              $ref: '#/components/schemas/DependencyCheck'
+        uptime_seconds:
+          type: integer
+          description: Service uptime in seconds
+          example: 3600
+
+    DependencyCheck:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - up
+            - down
+          description: Dependency status
+          example: "up"
+        latency_ms:
+          type: integer
+          description: Response latency in milliseconds
+          example: 5
+        error:
+          type: string
+          description: Error message if status is down
+          example: "Connection timeout after 5000ms"
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Optional Bearer token authentication.
+        
+        When enabled, include the token in the Authorization header:
+        ```
+        Authorization: Bearer <your-token>
+        ```
