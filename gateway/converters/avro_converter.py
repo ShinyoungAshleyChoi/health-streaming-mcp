@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 from io import BytesIO
 import fastavro
-from models.health_data import HealthDataPayload
+from gateway.models.health_data import HealthDataPayload
 
 
 class AvroConversionError(Exception):
@@ -27,7 +27,7 @@ class AvroConverter:
         if schema_path is None:
             # Try to get from config, fallback to relative path
             try:
-                from config import settings
+                from gateway.config import settings
                 schema_path = settings.schema_path
             except:
                 # Fallback for when config is not available
