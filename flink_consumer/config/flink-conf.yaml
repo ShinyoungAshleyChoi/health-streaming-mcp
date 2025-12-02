@@ -180,8 +180,8 @@ python.framework: flink
 # Table planner
 table.exec.resource.default-parallelism: 6
 
-# State TTL for table operations
-table.exec.state.ttl: 7d
+# State TTL for table operations (35 days to support monthly aggregations)
+table.exec.state.ttl: 35d
 
 # Mini-batch configuration for better throughput
 table.exec.mini-batch.enabled: true

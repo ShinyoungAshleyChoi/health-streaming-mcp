@@ -5,7 +5,7 @@ import json
 import struct
 from typing import Dict, Any, Optional
 import httpx
-from config import settings
+from gateway.config import settings
 
 
 class SchemaRegistryError(Exception):

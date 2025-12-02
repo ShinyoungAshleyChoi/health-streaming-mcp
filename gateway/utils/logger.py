@@ -4,7 +4,7 @@ Structured logging configuration
 import logging
 import sys
 from pythonjsonlogger import jsonlogger
-from config import settings
+from gateway.config import settings
 
 
 class CustomJsonFormatter(jsonlogger.JsonFormatter):

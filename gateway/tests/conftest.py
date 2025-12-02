@@ -1,7 +1,7 @@
 import pytest
 import os
 from typing import Generator
-from confluent_kafka import Consumer, Producer
+from confluent_kafka import Consumer
 from confluent_kafka.admin import AdminClient, NewTopic
 import httpx
 import time

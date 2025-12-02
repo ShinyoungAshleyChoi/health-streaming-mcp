@@ -2,7 +2,7 @@
 Metrics router
 """
 from fastapi import APIRouter, Response
-from services.metrics import get_metrics, get_content_type
+from gateway.services.metrics import get_metrics, get_content_type
 
 router = APIRouter(tags=["metrics"])
 

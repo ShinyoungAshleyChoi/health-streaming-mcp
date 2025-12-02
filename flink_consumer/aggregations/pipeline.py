@@ -37,7 +37,7 @@ class AggregationPipelineConfig:
                  daily_parallelism: int = 12,
                  weekly_parallelism: int = 6,
                  monthly_parallelism: int = 3,
-                 state_ttl_days: int = 7,
+                 state_ttl_days: int = 35,
                  watermark_out_of_orderness_minutes: int = 10,
                  enable_validation: bool = True,
                  enable_anomaly_detection: bool = True):
@@ -51,7 +51,7 @@ class AggregationPipelineConfig:
             daily_parallelism: Parallelism for daily aggregations
             weekly_parallelism: Parallelism for weekly aggregations
             monthly_parallelism: Parallelism for monthly aggregations
-            state_ttl_days: State TTL in days
+            state_ttl_days: State TTL in days (must be >= 35 for monthly aggregations)
             watermark_out_of_orderness_minutes: Watermark out-of-orderness
             enable_validation: Enable aggregation validation
             enable_anomaly_detection: Enable anomaly detection

@@ -4,7 +4,7 @@ Health check service
 import time
 from typing import Dict, Any
 from confluent_kafka import Producer
-from config import settings
+from gateway.config import settings
 
 
 class HealthCheckService:

@@ -1,9 +1,4 @@
-import pytest
 import time
-import json
-from confluent_kafka import Consumer
-import fastavro
-from io import BytesIO
 
 
 class TestKafkaMessageVerification:

@@ -4,13 +4,13 @@ Health Data API Router
 import logging
 from datetime import datetime
 from fastapi import APIRouter, Request, HTTPException
-from middleware.rate_limit import limiter
-from models.health_data import HealthDataPayload, HealthDataResponse
-from validators.health_data_validator import HealthDataValidator, ValidationError
-from converters.avro_converter import avro_converter, AvroConversionError
-from services.schema_registry import schema_registry_client, SchemaRegistryError
-from services.kafka_producer import kafka_producer_service, KafkaProducerError
-from config import settings
+from gateway.middleware.rate_limit import limiter
+from gateway.models.health_data import HealthDataPayload, HealthDataResponse
+from gateway.validators.health_data_validator import HealthDataValidator, ValidationError
+from gateway.converters.avro_converter import avro_converter, AvroConversionError
+from gateway.services.schema_registry import schema_registry_client, SchemaRegistryError
+from gateway.services.kafka_producer import kafka_producer_service, KafkaProducerError
+from gateway.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/health-data", tags=["health-data"])
 
 
 @router.post("/", response_model=HealthDataResponse)
-@limiter.limit("100/minute")  # 100 requests per minute per client
+@limiter.limit("1000/minute")  # 1000 requests per minute per client
 async def receive_health_data(request: Request, payload: HealthDataPayload):
     """
     Receive health data from iOS app
@@ -41,7 +41,7 @@ async def receive_health_data(request: Request, payload: HealthDataPayload):
         )
         
         # Track metrics
-        from services.metrics import health_data_received, health_data_samples
+        from gateway.services.metrics import health_data_received, health_data_samples
         health_data_received.labels(user_id=payload.userId).inc()
         for sample in payload.samples:
             health_data_samples.labels(data_type=sample.type).inc()
@@ -52,7 +52,7 @@ async def receive_health_data(request: Request, payload: HealthDataPayload):
             logger.debug(f"Converted to Avro: {len(avro_data)} bytes")
         except AvroConversionError as e:
             logger.error(f"Avro conversion failed: {e}")
-            from services.metrics import avro_conversion_errors
+            from gateway.services.metrics import avro_conversion_errors
             avro_conversion_errors.inc()
             raise HTTPException(
                 status_code=500,
@@ -84,7 +84,7 @@ async def receive_health_data(request: Request, payload: HealthDataPayload):
         
         # 6. Send to Kafka with retry
         try:
-            from services.metrics import kafka_messages_sent
+            from gateway.services.metrics import kafka_messages_sent
             await kafka_producer_service.send(
                 topic=settings.kafka_topic,
                 value=encoded_message,
@@ -107,7 +107,7 @@ async def receive_health_data(request: Request, payload: HealthDataPayload):
         except KafkaProducerError as e:
             logger.error(f"Failed to send to Kafka after retries: {e}")
             
-            from services.metrics import kafka_messages_sent, kafka_producer_errors
+            from gateway.services.metrics import kafka_messages_sent, kafka_producer_errors
             kafka_messages_sent.labels(topic=settings.kafka_topic, status="failed").inc()
             kafka_producer_errors.labels(error_type="KafkaProducerError").inc()
             
