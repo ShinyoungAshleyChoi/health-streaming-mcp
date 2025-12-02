@@ -119,9 +119,9 @@ class HealthDataTransformer(FlatMapFunction):
         is_synced = sample.get('isSynced', False)
         created_at_str = sample.get('createdAt')
         
-        # Extract timezone information (new fields)
+        # Extract timezone information
         timezone = sample.get('timezone')  # IANA timezone (e.g., "Asia/Seoul")
-        timezone_offset = sample.get('timezoneOffset')  # Offset in seconds
+        timezone_offset = sample.get('timezoneOffset')  # Offset in minutes from GMT
         
         # Validate required sample fields
         if not sample_id or not data_type or value is None:
@@ -183,36 +183,22 @@ class HealthDataTransformer(FlatMapFunction):
         """
         Resolve timezone from available information.
         
-        Priority:
-        1. Use IANA timezone if provided (e.g., "Asia/Seoul")
-        2. Fall back to UTC if not provided
+        Uses timezone utility to validate and resolve IANA timezone identifiers.
         
         Args:
-            timezone: IANA timezone identifier (e.g., "Asia/Seoul")
-            timezone_offset: Timezone offset in seconds (for validation/fallback)
+            timezone: IANA timezone identifier from iOS (e.g., "Asia/Seoul")
+            timezone_offset: Timezone offset in minutes from GMT
             
         Returns:
             Resolved IANA timezone identifier
         """
-        # Use provided timezone if valid
-        if timezone:
-            # Validate timezone format (basic check)
-            if '/' in timezone or timezone == 'UTC':
-                return timezone
-            else:
-                logger.warning(f"Invalid timezone format: {timezone}, using UTC")
-                return 'UTC'
+        from flink_consumer.utils.timezone_utils import resolve_timezone
         
-        # If no timezone but offset is provided, try to infer
-        # Note: This is not ideal as multiple timezones can have the same offset
-        if timezone_offset is not None:
-            logger.debug(
-                f"No timezone provided, only offset: {timezone_offset}s. "
-                f"Using UTC as default."
-            )
-        
-        # Default to UTC
-        return 'UTC'
+        return resolve_timezone(
+            timezone=timezone,
+            timezone_offset=timezone_offset,
+            default_timezone='UTC'
+        )
 
     @staticmethod
     def _parse_timestamp(iso_string: Optional[str]) -> Optional[int]:

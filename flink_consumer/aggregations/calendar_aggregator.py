@@ -84,6 +84,10 @@ class CalendarDailyAggregator(ProcessFunction):
         self.default_timezone = default_timezone
         self.emit_on_watermark = emit_on_watermark
         self.state = None
+        
+        # Import timezone utilities
+        from flink_consumer.utils.timezone_utils import get_timezone_cache
+        self.timezone_cache = get_timezone_cache()
     
     def open(self, runtime_context):
         """Initialize state."""
@@ -115,11 +119,17 @@ class CalendarDailyAggregator(ProcessFunction):
             value = float(record['value'])
             start_date_ms = record['start_date']
             
-            # Get timezone from record or use default
-            user_timezone = record.get('timezone', self.default_timezone)
+            # Resolve timezone from record (uses iOS TimeZone.current.identifier)
+            from flink_consumer.utils.timezone_utils import resolve_timezone
+            user_timezone = resolve_timezone(
+                timezone=record.get('timezone'),
+                timezone_offset=record.get('timezone_offset'),
+                default_timezone=self.default_timezone
+            )
             
             # Get calendar date in user's timezone
-            dt = datetime.fromtimestamp(start_date_ms / 1000, tz=ZoneInfo(user_timezone))
+            tz = self.timezone_cache.get_timezone(user_timezone)
+            dt = datetime.fromtimestamp(start_date_ms / 1000, tz=tz)
             aggregation_date = dt.date()
             
             # Get day boundaries
@@ -134,6 +144,7 @@ class CalendarDailyAggregator(ProcessFunction):
                 agg_state = CalendarAggregateState()
                 agg_state.window_start = window_start
                 agg_state.window_end = window_end
+                agg_state.timezone = user_timezone  # Store user's timezone
             else:
                 agg_state = CalendarAggregateState.from_dict(current_state)
             
@@ -190,8 +201,10 @@ class CalendarDailyAggregator(ProcessFunction):
         variance = (agg_state.sum_of_squares / count) - (avg_value * avg_value)
         stddev_value = variance ** 0.5 if variance > 0 else 0.0
         
-        # Get date from window_start
-        dt = datetime.fromtimestamp(agg_state.window_start / 1000, tz=ZoneInfo(self.user_timezone))
+        # Get date from window_start using stored timezone
+        user_timezone = agg_state.timezone or self.default_timezone
+        tz = self.timezone_cache.get_timezone(user_timezone)
+        dt = datetime.fromtimestamp(agg_state.window_start / 1000, tz=tz)
         aggregation_date = dt.date()
         
         # Create result
@@ -237,6 +250,10 @@ class CalendarMonthlyAggregator(ProcessFunction):
         """
         self.default_timezone = default_timezone
         self.state = None
+        
+        # Import timezone utilities
+        from flink_consumer.utils.timezone_utils import get_timezone_cache
+        self.timezone_cache = get_timezone_cache()
     
     def open(self, runtime_context):
         """Initialize state."""
@@ -265,11 +282,17 @@ class CalendarMonthlyAggregator(ProcessFunction):
             value = float(record['value'])
             start_date_ms = record['start_date']
             
-            # Get timezone from record or use default
-            user_timezone = record.get('timezone', self.default_timezone)
+            # Resolve timezone from record (uses iOS TimeZone.current.identifier)
+            from flink_consumer.utils.timezone_utils import resolve_timezone
+            user_timezone = resolve_timezone(
+                timezone=record.get('timezone'),
+                timezone_offset=record.get('timezone_offset'),
+                default_timezone=self.default_timezone
+            )
             
             # Get calendar month in user's timezone
-            dt = datetime.fromtimestamp(start_date_ms / 1000, tz=ZoneInfo(user_timezone))
+            tz = self.timezone_cache.get_timezone(user_timezone)
+            dt = datetime.fromtimestamp(start_date_ms / 1000, tz=tz)
             year = dt.year
             month = dt.month
             
@@ -340,8 +363,10 @@ class CalendarMonthlyAggregator(ProcessFunction):
         variance = (agg_state.sum_of_squares / count) - (avg_value * avg_value)
         stddev_value = variance ** 0.5 if variance > 0 else 0.0
         
-        # Get month info from window_start
-        dt = datetime.fromtimestamp(agg_state.window_start / 1000, tz=ZoneInfo(self.user_timezone))
+        # Get month info from window_start using stored timezone
+        user_timezone = agg_state.timezone or self.default_timezone
+        tz = self.timezone_cache.get_timezone(user_timezone)
+        dt = datetime.fromtimestamp(agg_state.window_start / 1000, tz=tz)
         year = dt.year
         month = dt.month
         days_in_month = calendar.monthrange(year, month)[1]

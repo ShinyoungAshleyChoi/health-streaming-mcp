@@ -75,6 +75,18 @@
               "name": "createdAt",
               "type": "string",
               "doc": "Creation timestamp in ISO 8601 format"
+            },
+            {
+              "name": "timezone",
+              "type": ["null", "string"],
+              "default": null,
+              "doc": "IANA timezone identifier (e.g., 'Asia/Seoul', 'America/New_York')"
+            },
+            {
+              "name": "timezoneOffset",
+              "type": ["null", "int"],
+              "default": null,
+              "doc": "Timezone offset in minutes from GMT"
             }
           ]
         }

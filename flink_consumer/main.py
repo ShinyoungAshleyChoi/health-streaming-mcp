@@ -317,9 +317,12 @@ class FlinkIcebergConsumer:
             logger.info("Stream keyed by (user_id, data_type)")
             
             # Daily aggregations
+            # Note: default_timezone is UTC, but actual timezone is resolved from each record's
+            # timezone field (iOS TimeZone.current.identifier). This ensures calendar-based
+            # aggregations respect user's local timezone (e.g., Asia/Seoul, America/New_York)
             logger.info("Step 8c: Setting up daily aggregations...")
             daily_aggregator = CalendarDailyAggregator(
-                default_timezone="UTC",
+                default_timezone="UTC",  # Fallback only if record has no timezone
                 emit_on_watermark=True
             )
             daily_agg_stream = keyed_stream.process(
@@ -329,12 +332,12 @@ class FlinkIcebergConsumer:
             
             # Set parallelism for daily aggregations
             daily_agg_stream.set_parallelism(12)
-            logger.info("Daily aggregations configured (parallelism: 12)")
+            logger.info("Daily aggregations configured (parallelism: 12, per-user timezone)")
             
             # Monthly aggregations
             logger.info("Step 8d: Setting up monthly aggregations...")
             monthly_aggregator = CalendarMonthlyAggregator(
-                default_timezone="UTC"
+                default_timezone="UTC"  # Fallback only if record has no timezone
             )
             monthly_agg_stream = keyed_stream.process(
                 monthly_aggregator,
